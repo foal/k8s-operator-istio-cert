@@ -23,6 +23,7 @@ import io.fabric8.certmanager.api.model.v1.CertificateBuilder;
 import io.fabric8.certmanager.api.model.v1.CertificateSpec;
 import io.fabric8.certmanager.api.model.v1.CertificateSpecBuilder;
 import io.fabric8.certmanager.client.CertManagerClient;
+import io.fabric8.istio.api.networking.v1beta1.Gateway;
 import io.fabric8.istio.api.networking.v1beta1.GatewaySpec;
 import io.fabric8.istio.api.networking.v1beta1.Server;
 import io.fabric8.istio.api.networking.v1beta1.ServerTLSSettings;
@@ -31,32 +32,32 @@ import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.javaoperatorsdk.operator.api.Context;
-import io.javaoperatorsdk.operator.api.Controller;
-import io.javaoperatorsdk.operator.api.DeleteControl;
-import io.javaoperatorsdk.operator.api.ResourceController;
-import io.javaoperatorsdk.operator.api.UpdateControl;
+import io.javaoperatorsdk.operator.api.reconciler.Context;
+import io.javaoperatorsdk.operator.api.reconciler.ControllerConfiguration;
+import io.javaoperatorsdk.operator.api.reconciler.DeleteControl;
+import io.javaoperatorsdk.operator.api.reconciler.Reconciler;
+import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 import io.quarkus.logging.Log;
 import one.util.streamex.StreamEx;
 
 @Singleton
-@Controller
-public class GatewayController implements ResourceController<Gateway> {
+@ControllerConfiguration
+public class GatewayController implements Reconciler<Gateway> {
 
 	@Inject
 	KubernetesClient kubernetesClient;
 
 	@Override
-	public DeleteControl deleteResource(Gateway gateway, Context<Gateway> context) {
+	public DeleteControl cleanup(Gateway gateway, Context context) {
 		Log.tracef("Execution deleteResource for: %s", getQualifiedName(gateway));
 		List<CertificateInfo> certPratameters = getCertificateInfo(gateway);
 		certPratameters.forEach(info -> Log.infof("Remove certificate for: %s", info));
 		// TODO
-		return DeleteControl.DEFAULT_DELETE;
+		return DeleteControl.defaultDelete();
 	}
 
 	@Override
-	public UpdateControl<Gateway> createOrUpdateResource(Gateway gateway, Context<Gateway> context) {
+	public UpdateControl<Gateway> reconcile(Gateway gateway, Context context) {
 		Log.tracef("Execution createOrUpdateResource for: %s", getQualifiedName(gateway));
 
 		List<CertificateInfo> certPratameters = getCertificateInfo(gateway);
