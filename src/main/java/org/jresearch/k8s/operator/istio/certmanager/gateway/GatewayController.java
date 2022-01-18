@@ -1,6 +1,6 @@
 package org.jresearch.k8s.operator.istio.certmanager.gateway;
 
-import static io.fabric8.kubernetes.client.utils.KubernetesResourceUtil.getQualifiedName;
+import static io.fabric8.kubernetes.client.utils.KubernetesResourceUtil.*;
 
 import java.text.ParseException;
 import java.util.List;
@@ -23,11 +23,13 @@ import io.fabric8.certmanager.api.model.v1.CertificateBuilder;
 import io.fabric8.certmanager.api.model.v1.CertificateSpec;
 import io.fabric8.certmanager.api.model.v1.CertificateSpecBuilder;
 import io.fabric8.certmanager.client.CertManagerClient;
+import io.fabric8.istio.api.networking.v1beta1.GatewaySpec;
+import io.fabric8.istio.api.networking.v1beta1.Server;
+import io.fabric8.istio.api.networking.v1beta1.ServerTLSSettings;
 import io.fabric8.kubernetes.api.model.Duration;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
-import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.Context;
 import io.javaoperatorsdk.operator.api.Controller;
@@ -35,9 +37,6 @@ import io.javaoperatorsdk.operator.api.DeleteControl;
 import io.javaoperatorsdk.operator.api.ResourceController;
 import io.javaoperatorsdk.operator.api.UpdateControl;
 import io.quarkus.logging.Log;
-import me.snowdrop.istio.api.networking.v1beta1.GatewaySpec;
-import me.snowdrop.istio.api.networking.v1beta1.Server;
-import me.snowdrop.istio.api.networking.v1beta1.ServerTLSSettings;
 import one.util.streamex.StreamEx;
 
 @Singleton
@@ -50,8 +49,9 @@ public class GatewayController implements ResourceController<Gateway> {
 	@Override
 	public DeleteControl deleteResource(Gateway gateway, Context<Gateway> context) {
 		Log.tracef("Execution deleteResource for: %s", getQualifiedName(gateway));
-		List<CertificateInfo> hosts = getCertificateInfo(gateway);
-		hosts.forEach(host -> Log.infof("Remove certificate for: %s", host));
+		List<CertificateInfo> certPratameters = getCertificateInfo(gateway);
+		certPratameters.forEach(info -> Log.infof("Remove certificate for: %s", info));
+		// TODO
 		return DeleteControl.DEFAULT_DELETE;
 	}
 
@@ -59,8 +59,8 @@ public class GatewayController implements ResourceController<Gateway> {
 	public UpdateControl<Gateway> createOrUpdateResource(Gateway gateway, Context<Gateway> context) {
 		Log.tracef("Execution createOrUpdateResource for: %s", getQualifiedName(gateway));
 
-		List<CertificateInfo> infos = getCertificateInfo(gateway);
-		infos.forEach(info -> createOrUpdateCertificate(gateway, info));
+		List<CertificateInfo> certPratameters = getCertificateInfo(gateway);
+		certPratameters.forEach(info -> createOrUpdateCertificate(gateway, info));
 
 		return UpdateControl.noUpdate();
 	}
@@ -72,16 +72,14 @@ public class GatewayController implements ResourceController<Gateway> {
 			return List.of();
 		}
 
-		String namespace = kubernetesClient
-			.apps()
-			.deployments()
+		String namespace = kubernetesClient.services()
 			.inAnyNamespace()
 			.withLabels(gw.getSpec().getSelector())
 			.list()
 			.getItems()
 			.stream()
 			.findAny()
-			.map(Deployment::getMetadata)
+			.map(HasMetadata::getMetadata)
 			.map(ObjectMeta::getNamespace)
 			.orElse(null);
 		if (namespace == null) {
@@ -105,6 +103,12 @@ public class GatewayController implements ResourceController<Gateway> {
 
 	private static Optional<CertificateConfiguration> getGeneralCertificateConfiguration(Gateway gw) {
 		Map<String, String> annotations = gw.getMetadata().getAnnotations();
+		if (annotations == null) {
+			Log.debugf("No issuer annotation ignore resource %s", getQualifiedName(gw));
+			// No issuer annotation ignore resource
+			return Optional.empty();
+		}
+
 		Optional<CertificateIssuerInfo> issuer = getCertificateIssuerInfo(gw, annotations);
 		if (issuer.isEmpty()) {
 			return Optional.empty();
