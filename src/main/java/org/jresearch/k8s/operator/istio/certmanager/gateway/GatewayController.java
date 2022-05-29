@@ -6,6 +6,7 @@ import java.text.ParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -34,27 +35,27 @@ import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.reconciler.Context;
 import io.javaoperatorsdk.operator.api.reconciler.ControllerConfiguration;
-import io.javaoperatorsdk.operator.api.reconciler.DeleteControl;
 import io.javaoperatorsdk.operator.api.reconciler.Reconciler;
+import io.javaoperatorsdk.operator.api.reconciler.ReconciliationMaxInterval;
 import io.javaoperatorsdk.operator.api.reconciler.UpdateControl;
 import io.quarkus.logging.Log;
 import one.util.streamex.StreamEx;
 
 @Singleton
-@ControllerConfiguration
+@ControllerConfiguration(reconciliationMaxInterval = @ReconciliationMaxInterval(interval = 30, timeUnit = TimeUnit.SECONDS))
 public class GatewayController implements Reconciler<Gateway> {
 
 	@Inject
 	KubernetesClient kubernetesClient;
 
-	@Override
-	public DeleteControl cleanup(Gateway gateway, Context context) {
-		Log.tracef("Execution deleteResource for: %s", getQualifiedName(gateway));
-		List<CertificateInfo> certPratameters = getCertificateInfo(gateway);
-		certPratameters.forEach(info -> Log.infof("Remove certificate for: %s", info));
-		// TODO
-		return DeleteControl.defaultDelete();
-	}
+//	@Override
+//	public DeleteControl cleanup(Gateway gateway, Context context) {
+//		Log.tracef("Execution deleteResource for: %s", getQualifiedName(gateway));
+//		List<CertificateInfo> certPratameters = getCertificateInfo(gateway);
+//		certPratameters.forEach(info -> Log.infof("Remove certificate for: %s", info));
+//		// TODO
+//		return DeleteControl.defaultDelete();
+//	}
 
 	@Override
 	public UpdateControl<Gateway> reconcile(Gateway gateway, Context context) {
